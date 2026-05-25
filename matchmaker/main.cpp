@@ -33,11 +33,21 @@ void test() {
 		int u, v;
 		long long w;
 		scanf("%d %d %lld", &u, &v, &w);
+
+		//dodanie relacji u->v
 		to[edgeCounter] = v;
 		weight[edgeCounter] = w;
 		nextEdge[edgeCounter] = head[u];
 		head[u] = edgeCounter;
 		edgeCounter++;
+
+		//dodanie relacji v->u
+		to[edgeCounter] = u;
+		weight[edgeCounter] = w;
+		nextEdge[edgeCounter] = head[v];
+		head[v] = edgeCounter;
+		edgeCounter++;
+
 	}
 	delete[] head;
 	delete[] weight;
