@@ -2,8 +2,6 @@
 #include <cstdlib>
 #include <cstdio>
 #define _CRT_SECURE_NO_WARNINGS
-#pragma GCC optimize("O3,unroll-loops")
-#pragma GCC target("avx2,bmi,bmi2,lzcnt,popcnt")
 
 struct queue {
 	int* elements;
@@ -34,7 +32,7 @@ bool bfsEdgeColoring(int n, int* head, int* to, int* nextEdge, int* colors) {
 	queue q; //tworzenie lokalnej kolejki
 	q.elements = new int[n + 1];
 	for (int i = 1; i <= n; i++) {
-		if (colors[i] == -1 && head[i] != -1) {
+		if (colors[i] == -1) {
 			colors[i] = 0;
 			q.push(i);
 
@@ -61,14 +59,13 @@ bool bfsEdgeColoring(int n, int* head, int* to, int* nextEdge, int* colors) {
 	return true;
 }
 
-long long hungarian(int matrixSize, int* matrix) {
+long long hungarian(int matrixSize, long long* matrix) {
 	long long* leftLabel = new long long[matrixSize + 1](); //etykiety dla lewej strony
 	long long* rightLabel = new long long[matrixSize + 1](); //etykiety dla prawej strony
 	int* match = new int[matrixSize + 1]();
 	int* traceBack = new int[matrixSize + 1](); //tablica do odtwarzania sciezki
 	long long* slack = new long long[matrixSize + 1]();
 	bool* met = new bool[matrixSize + 1]();
-	int* unvisited = new int[matrixSize + 1]();
 
 	for (int i = 0; i <= matrixSize; i++) {
 		leftLabel[i] = 0;
@@ -79,7 +76,7 @@ long long hungarian(int matrixSize, int* matrix) {
 
 	for (int i = 1; i <= matrixSize; i++) {
 		long long maxVal = 0; //maksymalne wymagania dla lewej strony
-		int* currentRow = &matrix[(long long)(i - 1) * matrixSize];
+		long long* currentRow = &matrix[(i - 1) * matrixSize];
 		for (int j = 1; j <= matrixSize; j++) {
 			if (currentRow[j - 1] > maxVal) {
 				maxVal = currentRow[j - 1];
@@ -92,42 +89,32 @@ long long hungarian(int matrixSize, int* matrix) {
 	for (int i = 1; i <= matrixSize; i++) {
 		match[0] = i; //indeks zerowy i tak nie jest uzywany wiec posluzy jako bufor
 		int rightPosition = 0; //zmienna do chodzenia po grafach
-		int unvisitedCount = matrixSize; //ilosc nieodwiedzonych jest rowna ilosci wszystkich
-		int nextPerson = -1; //indeks nastepnej osoby
 
 		for (int j = 0; j <= matrixSize; j++) {
 			slack[j] = 2000000000000000000LL;
 			met[j] = false;
-			if (j > 0) {
-				unvisited[j - 1] = j;
-			}
 		}
 
 		do {
 			met[rightPosition] = true;
-			if (nextPerson != -1) {
-				unvisited[nextPerson] = unvisited[unvisitedCount - 1]; //usuniecie osoby z tablicy unvisited
-				unvisitedCount--;
-			}
 			int currentLeftPerson = match[rightPosition];
 			int nextRightPosition = 0;
 			long long delta = 2000000000000000000LL;
 
-			int* currentRow = &matrix[(long long)(currentLeftPerson - 1) * matrixSize];
+			long long* currentRow = &matrix[(currentLeftPerson - 1) * matrixSize];
 			long long currentLeftLabel = leftLabel[currentLeftPerson];
 
-			for (int j = 0; j < unvisitedCount; j++) {
-				int k = unvisited[j]; //pobranie numeru nieodwiedzonej osoby
-				long long gap = currentLeftLabel + rightLabel[k] - currentRow[k - 1]; //roznica pomiedzy dwoma osobami
-
-				if (gap < slack[k]) {
-					slack[k] = gap;
-					traceBack[k] = rightPosition;
-				}
-				if (slack[k] < delta) {
-					delta = slack[k];
-					nextRightPosition = k;
-					nextPerson = j; //zapisanie na jakiej pozycji jest kolejny kandydat
+			for (int j = 1; j <= matrixSize; j++) {
+				if (!met[j]) {
+					long long gap = currentLeftLabel + rightLabel[j] - currentRow[j - 1]; //obliczanie roznicy pomiedzy dwoma osobami
+					if (gap < slack[j]) {
+						slack[j] = gap;
+						traceBack[j] = rightPosition; //zostawienie sladu 
+					}
+					if (slack[j] < delta) {
+						delta = slack[j];
+						nextRightPosition = j; //przypisanie nastepnego kroku
+					}
 				}
 			}
 			for (int j = 0; j <= matrixSize; j++) { //petla obnizajaca wymagania
@@ -135,9 +122,9 @@ long long hungarian(int matrixSize, int* matrix) {
 					leftLabel[match[j]] -= delta; //obnizanie wymagan lewej strony
 					rightLabel[j] += delta; //podnoszenie wymagan praweje strony
 				}
-			}
-			for (int j = 0; j < unvisitedCount; j++) {
-				slack[unvisited[j]] -= delta;
+				else {
+					slack[j] -= delta;
+				}
 			}
 			rightPosition = nextRightPosition; //przejscie krok dalej
 		} while (match[rightPosition] != 0);
@@ -153,8 +140,8 @@ long long hungarian(int matrixSize, int* matrix) {
 
 	long long totalWeight = 0;
 	for (int j = 1; j <= matrixSize; j++) {
-		if (match[j] != 0 && matrix[(long long)(match[j] - 1) * matrixSize + (j - 1)] > 0) {
-			totalWeight += matrix[(long long)(match[j] - 1) * matrixSize + (j - 1)];
+		if (match[j] != 0 && matrix[(match[j] - 1) * matrixSize + (j - 1)] > 0) {
+			totalWeight += matrix[(match[j] - 1) * matrixSize + (j - 1)];
 		}
 	}
 
@@ -164,7 +151,6 @@ long long hungarian(int matrixSize, int* matrix) {
 	delete[] traceBack;
 	delete[] slack;
 	delete[] met;
-	delete[] unvisited;
 	return totalWeight;
 }
 
@@ -237,7 +223,7 @@ void test() {
 			matrixSize = rightCount;
 		}
 
-		int* matrix = new int[(long long)matrixSize * matrixSize](); //macierz do ktorej beda zapisywane wagi relacji
+		long long* matrix = new long long[(long long)matrixSize * matrixSize](); //macierz do ktorej beda zapisywane wagi relacji
 
 		for (int i = 1; i <= n; i++) {
 			if (colors[i] == 0) {
@@ -247,8 +233,8 @@ void test() {
 				while (currentEdge != -1) {
 					int v = to[currentEdge];
 					int column = mappedId[v];
-					if (weight[currentEdge] > matrix[(long long) row * matrixSize + column]) {
-						matrix[(long long) row * matrixSize + column] = weight[currentEdge];
+					if (weight[currentEdge] > matrix[row * matrixSize + column]) {
+						matrix[row * matrixSize + column] = weight[currentEdge];
 					}
 					currentEdge = nextEdge[currentEdge];
 				}

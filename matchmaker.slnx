@@ -3,5 +3,5 @@
     <Platform Name="x64" />
     <Platform Name="x86" />
   </Configurations>
-  <Project Path="matchmaker/matchmaker.vcxproj" />
+  <Project Path="matchmaker/matchmaker.vcxproj" Id="17e0fb02-aa8b-4273-bf12-bf001182da97" />
 </Solution>
