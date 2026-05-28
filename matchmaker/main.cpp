@@ -1,9 +1,9 @@
+#define _CRT_SECURE_NO_WARNINGS
+
 #include <iostream>
 #include <cstdlib>
 #include <cstdio>
-#define _CRT_SECURE_NO_WARNINGS
-#pragma GCC optimize("O3,unroll-loops")
-#pragma GCC target("avx2,bmi,bmi2,lzcnt,popcnt")
+
 
 struct queue {
 	int* elements;
@@ -61,110 +61,129 @@ bool bfsEdgeColoring(int n, int* head, int* to, int* nextEdge, int* colors) {
 	return true;
 }
 
-long long hungarian(int matrixSize, int* matrix) {
-	long long* leftLabel = new long long[matrixSize + 1](); //etykiety dla lewej strony
-	long long* rightLabel = new long long[matrixSize + 1](); //etykiety dla prawej strony
-	int* match = new int[matrixSize + 1]();
-	int* traceBack = new int[matrixSize + 1](); //tablica do odtwarzania sciezki
-	long long* slack = new long long[matrixSize + 1]();
-	bool* met = new bool[matrixSize + 1]();
-	int* unvisited = new int[matrixSize + 1]();
+long long hungarian(int women, int men, int* head, int* to, long long* weight, int* nextEdge) {
+	int totalMenWithDummies = women + men;
+	long long* womenLabel = new long long[women + 1](); 
+	long long* menLabel = new long long[totalMenWithDummies + 1]();
+	int* match = new int[totalMenWithDummies + 1]();
+	
+	int* traceBack = new int[totalMenWithDummies + 1]();
+	long long* slack = new long long[totalMenWithDummies + 1]();
+	bool* menVisited = new bool[totalMenWithDummies + 1]();
+	int* menUnvisited = new int[totalMenWithDummies + 1]();
 
-	for (int i = 0; i <= matrixSize; i++) {
-		leftLabel[i] = 0;
-		rightLabel[i] = 0;
-		match[i] = 0;
-		traceBack[i] = 0;
-	}
-
-	for (int i = 1; i <= matrixSize; i++) {
-		long long maxVal = 0; //maksymalne wymagania dla lewej strony
-		int* currentRow = &matrix[(long long)(i - 1) * matrixSize];
-		for (int j = 1; j <= matrixSize; j++) {
-			if (currentRow[j - 1] > maxVal) {
-				maxVal = currentRow[j - 1];
+	for (int i = 1; i <= women; i++) {
+		long long maxVal = 0; //znajdowanie najwyzszej wartosci relacji
+		for (int edge = head[i]; edge != -1; edge = nextEdge[edge]) {
+			if (weight[edge] > maxVal) {
+				maxVal = weight[edge];
 			}
 		}
-		leftLabel[i] = maxVal; //przypisanie najwiekszej wartosci (wymagania)
+		womenLabel[i] = maxVal;
 	}
+	for (int i=1;i<=women;i++){
+		match[0] = i; //index zerowy nie jest uzywany wiec  sluzy jako bufor
+		int currentMan = 0;
+		int unvisitedCount = totalMenWithDummies;
+		int nextIndex = -1;
 
-	//glowna petla algorytmu
-	for (int i = 1; i <= matrixSize; i++) {
-		match[0] = i; //indeks zerowy i tak nie jest uzywany wiec posluzy jako bufor
-		int rightPosition = 0; //zmienna do chodzenia po grafach
-		int unvisitedCount = matrixSize; //ilosc nieodwiedzonych jest rowna ilosci wszystkich
-		int nextPerson = -1; //indeks nastepnej osoby
-
-		for (int j = 0; j <= matrixSize; j++) {
+		for (int j = 0; j <= totalMenWithDummies; j++) {
 			slack[j] = 2000000000000000000LL;
-			met[j] = false;
+			menVisited[j] = false;
 			if (j > 0) {
-				unvisited[j - 1] = j;
+				menUnvisited[j - 1] = j;
 			}
 		}
-
 		do {
-			met[rightPosition] = true;
-			if (nextPerson != -1) {
-				unvisited[nextPerson] = unvisited[unvisitedCount - 1]; //usuniecie osoby z tablicy unvisited
+			menVisited[currentMan] = true;
+			if (nextIndex != -1) {
+				menUnvisited[nextIndex] = menUnvisited[unvisitedCount - 1]; //podmiana danego elementy na ostatni
 				unvisitedCount--;
 			}
-			int currentLeftPerson = match[rightPosition];
-			int nextRightPosition = 0;
+
+			int currentWoman = match[currentMan]; //wyciagniecie obecnej kobiety
 			long long delta = 2000000000000000000LL;
+			int nextMan = 0;
 
-			int* currentRow = &matrix[(long long)(currentLeftPerson - 1) * matrixSize];
-			long long currentLeftLabel = leftLabel[currentLeftPerson];
+			if (currentWoman != 0) {
+				for (int edge = head[currentWoman]; edge != -1; edge = nextEdge[edge]) {
+					int manId = to[edge];
+					if (!menVisited[manId]) {
+						long long gap = womenLabel[currentWoman] + menLabel[manId] - weight[edge]; //gap to roznica pomiedzy dwoma osobami, ile brakuje zeby relacja byla idealna i mozna bylo ich polaczyc
+						if (gap < slack[manId]) {
+							slack[manId] = gap;
+							traceBack[manId] = currentMan;
+						}
+					}
+				}
+				int dummyMan = men + currentWoman; //"sztuczny" mezczyzna dla danej kobiety
+				if (!menVisited[dummyMan]) {
+					long long gap = womenLabel[currentWoman] + menLabel[dummyMan] - 0; //to zero jest dlatego ze waga sztucznej relacji jest rowna 0
+					if (gap < slack[dummyMan]) {
+						slack[dummyMan] = gap;
+						traceBack[dummyMan] = currentMan;
+					}
+				}
+			}
 
+			//znajdowanie najnizszego slack
+			for (int j = 0; j < unvisitedCount; j++) { 
+				int manId = menUnvisited[j];
+
+				if (slack[manId] < delta) {
+					delta = slack[manId];
+					nextMan = manId;
+					nextIndex = j;
+				}
+			}
+
+			//obnizenie wymagan nieodwiedzonych
+			for (int j = 0; j <= totalMenWithDummies; j++) {
+				if (menVisited[j]) {
+					womenLabel[match[j]] -= delta; 
+					menLabel[j] += delta;
+				}
+			}
+
+			//aktualizowanie slack nieodwiedzonych
 			for (int j = 0; j < unvisitedCount; j++) {
-				int k = unvisited[j]; //pobranie numeru nieodwiedzonej osoby
-				long long gap = currentLeftLabel + rightLabel[k] - currentRow[k - 1]; //roznica pomiedzy dwoma osobami
+				slack[menUnvisited[j]] -= delta;
+			}
+			currentMan = nextMan;
 
-				if (gap < slack[k]) {
-					slack[k] = gap;
-					traceBack[k] = rightPosition;
-				}
-				if (slack[k] < delta) {
-					delta = slack[k];
-					nextRightPosition = k;
-					nextPerson = j; //zapisanie na jakiej pozycji jest kolejny kandydat
-				}
-			}
-			for (int j = 0; j <= matrixSize; j++) { //petla obnizajaca wymagania
-				if (met[j]) {
-					leftLabel[match[j]] -= delta; //obnizanie wymagan lewej strony
-					rightLabel[j] += delta; //podnoszenie wymagan praweje strony
-				}
-			}
-			for (int j = 0; j < unvisitedCount; j++) {
-				slack[unvisited[j]] -= delta;
-			}
-			rightPosition = nextRightPosition; //przejscie krok dalej
-		} while (match[rightPosition] != 0);
-
-		//wrocenie sie po krokach zeby zaaktualizowac tablice match (po znalezieniu pary)
+		} 
+		while (match[currentMan] != 0);
+		//cofanie sie po sladach
 		do {
-			int previousRightPosition = traceBack[rightPosition]; //pobranie ostatniego kroku
-			match[rightPosition] = match[previousRightPosition]; //zabranie partnera poprzedniej osobie
-			rightPosition = previousRightPosition; //cofniecie sie o krok
-		} while (rightPosition != 0);
-
+			int prevMan = traceBack[currentMan];
+			match[currentMan] = match[prevMan];
+			currentMan = prevMan;
+		} while (currentMan != 0);
 	}
-
 	long long totalWeight = 0;
-	for (int j = 1; j <= matrixSize; j++) {
-		if (match[j] != 0 && matrix[(long long)(match[j] - 1) * matrixSize + (j - 1)] > 0) {
-			totalWeight += matrix[(long long)(match[j] - 1) * matrixSize + (j - 1)];
+	for (int j = 1; j <= men; j++) {
+		if (match[j] != 0) {
+			int matchedWoman = match[j];
+			long long actualWeight = 0;
+
+			for (int edge = head[matchedWoman]; edge != -1; edge = nextEdge[edge]) {
+				if (to[edge] == j) {
+					if (weight[edge] > actualWeight) {
+						actualWeight = weight[edge];
+					}
+				}
+			}
+			totalWeight += actualWeight;
 		}
 	}
-
-	delete[] leftLabel;
-	delete[] rightLabel;
+	delete[] womenLabel;
+	delete[] menLabel;
 	delete[] match;
 	delete[] traceBack;
 	delete[] slack;
-	delete[] met;
-	delete[] unvisited;
+	delete[] menVisited;
+	delete[] menUnvisited;
+
 	return totalWeight;
 }
 
@@ -214,52 +233,57 @@ void test() {
 	bool isBipartite = bfsEdgeColoring(n, head, to, nextEdge, colors);
 
 	if (isBipartite) {
-		int leftCount = 0;
-		int rightCount = 0;
+		int womenCount = 0;
+		int menCount = 0;
 		int* mappedId = new int[n + 1]; //tablica do przekladania wierzcholkow na macierz
 
 		for (int i = 1; i <= n; i++) {
 			if (colors[i] == 0) {
-				mappedId[i] = leftCount;
-				leftCount++;
+				womenCount++;
+				mappedId[i] = womenCount;
 			}
 			else if (colors[i] == 1) {
-				mappedId[i] = rightCount;
-				rightCount++;
+				menCount++;
+				mappedId[i] = menCount;
 			}
 		}
 
-		int matrixSize = 0;
-		if (leftCount > rightCount) {
-			matrixSize = leftCount;
+		int* filteredHead = new int[womenCount + 1];
+		for (int i = 0; i <= womenCount; i++) {
+			filteredHead[i] = -1;
 		}
-		else {
-			matrixSize = rightCount;
-		}
-
-		int* matrix = new int[(long long)matrixSize * matrixSize](); //macierz do ktorej beda zapisywane wagi relacji
+		int* filteredTo = new int[m + 1];
+		long long* filteredWeight = new long long[m + 1];
+		int* filteredNextEdge = new int[m + 1];
+		int filteredEdgeCounter = 0;
 
 		for (int i = 1; i <= n; i++) {
-			if (colors[i] == 0) {
-				int row = mappedId[i];
+			if (colors[i] == 0) { //jedynie krawedzie wychodzace od kobiet
+				int womenId = mappedId[i];
 				int currentEdge = head[i];
 
 				while (currentEdge != -1) {
-					int v = to[currentEdge];
-					int column = mappedId[v];
-					if (weight[currentEdge] > matrix[(long long) row * matrixSize + column]) {
-						matrix[(long long) row * matrixSize + column] = weight[currentEdge];
-					}
+					int menIdOg = to[currentEdge];
+					int menId = mappedId[menIdOg];
+					filteredTo[filteredEdgeCounter] = menId;
+					filteredWeight[filteredEdgeCounter] = weight[currentEdge];
+					filteredNextEdge[filteredEdgeCounter] = filteredHead[womenId];
+					filteredHead[womenId]=filteredEdgeCounter;
+					filteredEdgeCounter++;
+
 					currentEdge = nextEdge[currentEdge];
 				}
 			}
 		}
 
-		long long result = hungarian(matrixSize, matrix);
+		long long result = hungarian(womenCount,menCount, filteredHead, filteredTo, filteredWeight, filteredNextEdge);
 		printf("%lld ", result);
 
 		delete[] mappedId;
-		delete[] matrix;
+		delete[] filteredHead;
+		delete[] filteredTo;
+		delete[] filteredWeight;
+		delete[] filteredNextEdge;
 	}
 	else {
 		printf("0 ");

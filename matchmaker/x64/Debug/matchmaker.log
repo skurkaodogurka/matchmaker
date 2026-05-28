@@ -1,4 +1,2 @@
 ﻿  main.cpp
-C:\Users\Paweł\Desktop\matchmaker\matchmaker\main.cpp(161,2): error C4996: 'scanf': This function or variable may be unsafe. Consider using scanf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
-C:\Users\Paweł\Desktop\matchmaker\matchmaker\main.cpp(185,3): error C4996: 'scanf': This function or variable may be unsafe. Consider using scanf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
-C:\Users\Paweł\Desktop\matchmaker\matchmaker\main.cpp(276,2): error C4996: 'scanf': This function or variable may be unsafe. Consider using scanf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+  matchmaker.vcxproj -> C:\Users\Paweł\Desktop\matchmaker\x64\Debug\matchmaker.exe
