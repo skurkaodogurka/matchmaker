@@ -29,25 +29,25 @@ struct queue {
 	}
 };
 
-bool bfsEdgeColoring(int n, int* head, int* to, int* nextEdge, int* colors) {
+bool bfsEdgeColoring(int personCount, int* head, int* to, int* nextEdge, int* genderGroup) {
 
 	queue q; //tworzenie lokalnej kolejki
-	q.elements = new int[n + 1];
-	for (int i = 1; i <= n; i++) {
-		if (colors[i] == -1 && head[i] != -1) {
-			colors[i] = 0;
+	q.elements = new int[personCount + 1];
+	for (int i = 1; i <= personCount; i++) {
+		if (genderGroup[i] == -1 && head[i] != -1) {
+			genderGroup[i] = 0;
 			q.push(i);
 
 			while (!q.isEmpty()) {
-				int u = q.pop();
-				int currentEdge = head[u];
+				int currentPerson = q.pop();
+				int currentEdge = head[currentPerson];
 				while (currentEdge != -1) {
-					int v = to[currentEdge];
-					if (colors[v] == -1) {
-						colors[v] = 1 - colors[u];
-						q.push(v);
+					int possiblePartner = to[currentEdge];
+					if (genderGroup[possiblePartner] == -1) {
+						genderGroup[possiblePartner] = 1 - genderGroup[currentPerson];
+						q.push(possiblePartner);
 					}
-					else if (colors[v] == colors[u]) {
+					else if (genderGroup[possiblePartner] == genderGroup[currentPerson]) {
 						delete[] q.elements;
 						return false;
 					}
@@ -61,9 +61,9 @@ bool bfsEdgeColoring(int n, int* head, int* to, int* nextEdge, int* colors) {
 	return true;
 }
 
-long long hungarian(int women, int men, int* head, int* to, long long* weight, int* nextEdge) {
-	int totalMenWithDummies = women + men;
-	long long* womenLabel = new long long[women + 1](); 
+long long hungarian(int womenCount, int menCount, int* head, int* to, long long* weight, int* nextEdge) {
+	int totalMenWithDummies = womenCount + menCount;
+	long long* womenLabel = new long long[womenCount + 1](); 
 	long long* menLabel = new long long[totalMenWithDummies + 1]();
 	int* match = new int[totalMenWithDummies + 1]();
 	
@@ -72,7 +72,7 @@ long long hungarian(int women, int men, int* head, int* to, long long* weight, i
 	bool* menVisited = new bool[totalMenWithDummies + 1]();
 	int* menUnvisited = new int[totalMenWithDummies + 1]();
 
-	for (int i = 1; i <= women; i++) {
+	for (int i = 1; i <= womenCount; i++) {
 		long long maxVal = 0; //znajdowanie najwyzszej wartosci relacji
 		for (int edge = head[i]; edge != -1; edge = nextEdge[edge]) {
 			if (weight[edge] > maxVal) {
@@ -81,7 +81,7 @@ long long hungarian(int women, int men, int* head, int* to, long long* weight, i
 		}
 		womenLabel[i] = maxVal;
 	}
-	for (int i=1;i<=women;i++){
+	for (int i=1;i<=womenCount;i++){
 		match[0] = i; //index zerowy nie jest uzywany wiec  sluzy jako bufor
 		int currentMan = 0;
 		int unvisitedCount = totalMenWithDummies;
@@ -116,7 +116,7 @@ long long hungarian(int women, int men, int* head, int* to, long long* weight, i
 						}
 					}
 				}
-				int dummyMan = men + currentWoman; //"sztuczny" mezczyzna dla danej kobiety
+				int dummyMan = menCount + currentWoman; //"sztuczny" mezczyzna dla danej kobiety
 				if (!menVisited[dummyMan]) {
 					long long gap = womenLabel[currentWoman] + menLabel[dummyMan] - 0; //to zero jest dlatego ze waga sztucznej relacji jest rowna 0
 					if (gap < slack[dummyMan]) {
@@ -161,7 +161,7 @@ long long hungarian(int women, int men, int* head, int* to, long long* weight, i
 		} while (currentMan != 0);
 	}
 	long long totalWeight = 0;
-	for (int j = 1; j <= men; j++) {
+	for (int j = 1; j <= menCount; j++) {
 		if (match[j] != 0) {
 			int matchedWoman = match[j];
 			long long actualWeight = 0;
@@ -187,62 +187,94 @@ long long hungarian(int women, int men, int* head, int* to, long long* weight, i
 	return totalWeight;
 }
 
+void bruteForce(int currentPerson, long long currentWeight, int personCount, int* head, int* to, long long* weight, int* nextEdge, bool* taken, long long& maxBruteWeight) {
+
+	if (currentPerson > personCount) {
+		if (currentWeight > maxBruteWeight) {
+			maxBruteWeight = currentWeight;
+		}
+		return;
+	}
+	if (taken[currentPerson]) {
+		bruteForce(currentPerson + 1, currentWeight, personCount, head, to, weight, nextEdge, taken, maxBruteWeight);
+		return;
+	}
+	//glowna logika
+	bruteForce(currentPerson + 1, currentWeight, personCount, head, to, weight, nextEdge, taken, maxBruteWeight); //przypadek w ktorym dana osoba zostaje singlem (nie jest polaczona w zadna pare), po prostyu wywolanie funkcji dla kolejnej osoby
+
+	//proba sparowania osoby z kazdym mozliwym partnerem
+	for (int edge = head[currentPerson]; edge != -1; edge = nextEdge[edge]) {
+		int possiblePartner = to[edge];
+
+		if (!taken[possiblePartner]) {
+			taken[currentPerson] = true;
+			taken[possiblePartner] = true;
+
+			bruteForce(currentPerson + 1, currentWeight + weight[edge], personCount, head, to, weight, nextEdge, taken, maxBruteWeight); //przejscie do kolejnej osoby
+
+			//backtracking w celu znalezienia nastepnego potencjalnego partnera
+			taken[currentPerson] = false;
+			taken[possiblePartner] = false;
+		}
+	}
+}
+
 void test() {
-	int n, m;
-	scanf("%d %d", &n, &m);
+	int personCount, relationCount;
+	scanf("%d %d", &personCount, &relationCount);
 
 	//przypadek w ktorym nie ma zadnych polaczen (krawedzi)
-	if (m == 0) {
+	if (relationCount == 0) {
 		printf("0 ");
 		return;
 	}
 
 	int edgeCounter = 0;
-	int* head = new int[n + 1];
-	int* to = new int[(long long)2 * m];
-	int* nextEdge = new int[(long long)2 * m];
-	long long* weight = new long long[(long long)2 * m];
-	int* colors = new int[n + 1];
+	int* head = new int[personCount + 1];
+	int* to = new int[(long long)2 * relationCount];
+	int* nextEdge = new int[(long long)2 * relationCount];
+	long long* weight = new long long[(long long)2 * relationCount];
+	int* genderGroup = new int[personCount + 1];
 
-	for (int i = 0; i <= n; i++) {
+	for (int i = 0; i <= personCount; i++) {
 		head[i] = -1;
-		colors[i] = -1;
+		genderGroup[i] = -1;
 	}
 
-	for (int i = 0; i < m; i++) {
-		int u, v;
-		long long w;
-		scanf("%d %d %lld", &u, &v, &w);
+	for (int i = 0; i < relationCount; i++) {
+		int personA, personB;
+		long long relationWeight;
+		scanf("%d %d %lld", &personA, &personB, &relationWeight);
 
 		//dodanie relacji u->v
-		to[edgeCounter] = v;
-		weight[edgeCounter] = w;
-		nextEdge[edgeCounter] = head[u];
-		head[u] = edgeCounter;
+		to[edgeCounter] = personB;
+		weight[edgeCounter] = relationWeight;
+		nextEdge[edgeCounter] = head[personA];
+		head[personA] = edgeCounter;
 		edgeCounter++;
 
 		//dodanie relacji v->u
-		to[edgeCounter] = u;
-		weight[edgeCounter] = w;
-		nextEdge[edgeCounter] = head[v];
-		head[v] = edgeCounter;
+		to[edgeCounter] = personA;
+		weight[edgeCounter] = relationWeight;
+		nextEdge[edgeCounter] = head[personB];
+		head[personB] = edgeCounter;
 		edgeCounter++;
 
 	}
 
-	bool isBipartite = bfsEdgeColoring(n, head, to, nextEdge, colors);
+	bool isBipartite = bfsEdgeColoring(personCount, head, to, nextEdge, genderGroup);
 
 	if (isBipartite) {
 		int womenCount = 0;
 		int menCount = 0;
-		int* mappedId = new int[n + 1]; //tablica do przekladania wierzcholkow na macierz
+		int* mappedId = new int[personCount + 1]; //tablica do przekladania wierzcholkow na macierz
 
-		for (int i = 1; i <= n; i++) {
-			if (colors[i] == 0) {
+		for (int i = 1; i <= personCount; i++) {
+			if (genderGroup[i] == 0) {
 				womenCount++;
 				mappedId[i] = womenCount;
 			}
-			else if (colors[i] == 1) {
+			else if (genderGroup[i] == 1) {
 				menCount++;
 				mappedId[i] = menCount;
 			}
@@ -252,13 +284,13 @@ void test() {
 		for (int i = 0; i <= womenCount; i++) {
 			filteredHead[i] = -1;
 		}
-		int* filteredTo = new int[m + 1];
-		long long* filteredWeight = new long long[m + 1];
-		int* filteredNextEdge = new int[m + 1];
+		int* filteredTo = new int[relationCount + 1];
+		long long* filteredWeight = new long long[relationCount + 1];
+		int* filteredNextEdge = new int[relationCount + 1];
 		int filteredEdgeCounter = 0;
 
-		for (int i = 1; i <= n; i++) {
-			if (colors[i] == 0) { //jedynie krawedzie wychodzace od kobiet
+		for (int i = 1; i <= personCount; i++) {
+			if (genderGroup[i] == 0) { //jedynie krawedzie wychodzace od kobiet
 				int womenId = mappedId[i];
 				int currentEdge = head[i];
 
@@ -286,10 +318,16 @@ void test() {
 		delete[] filteredNextEdge;
 	}
 	else {
-		printf("0 ");
+		bool* taken = new bool[personCount + 1]();
+		long long maxBruteWeight = 0;
+
+		bruteForce(1, 0, personCount, head, to, weight, nextEdge, taken, maxBruteWeight);
+
+		printf("%lld ", maxBruteWeight);
+		delete[] taken;
 	}
 
-	delete[] colors;
+	delete[] genderGroup;
 	delete[] head;
 	delete[] weight;
 	delete[] nextEdge;
@@ -297,10 +335,10 @@ void test() {
 }
 
 int main() {
-	int t;
-	scanf("%d", &t);
+	int testCaseCount;
+	scanf("%d", &testCaseCount);
 
-	for (int i = 0; i < t; i++) {
+	for (int i = 0; i < testCaseCount; i++) {
 		test();
 	}
 	printf("\n");
